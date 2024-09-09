@@ -1,0 +1,171 @@
+
+---
+title: "DMC overlap with histone marks-link with DEG"
+author: "Qing Wang"
+date: "26/08/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## read in files
+
+DMC annotated by histone marks and gene symbol
+```{r}
+library(GenomicRanges)
+library(dplyr)
+pltgr = readRDS('C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/methylation/Project_13012_B/histone/dmcgr_histone_annotate.rds')
+```
+
+read deg file, link with deg log2fc
+```{r}
+library(openxlsx)
+de=read.xlsx('MAST_filter_fix_AT2_aged_sedyoung_sed.xlsx', rowNames = T)
+
+head(de)
+colnames(de)[1]='gene_symbol' #8776
+
+
+plt=as.data.frame(pltgr)
+
+head(plt)
+
+plt=left_join(plt, de, by='gene_symbol')
+head(plt)
+
+write.csv(plt, file='C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/methylation/Project_13012_B/histone/dmc_histone_diff_deg_plt.csv')
+```
+
+run correlation betweeen DMC and DEG in each histone category, save the correlation score, 
+
+```{r}
+library(ggpubr)
+loop=unique(plt$histone)
+loop
+
+cor=matrix(nrow = length(loop), ncol=2)
+
+rownames(cor)=loop
+colnames(cor)=c('r', 'pval')
+
+
+for (i in 1:length(loop)){
+  print(loop[i])
+  a=loop[i]
+
+  newplt=na.omit(plt[which(plt$histone == a),]) 
+
+table(newplt$direction)
+
+newplt2 = newplt  %>% filter(fdr<0.05) %>% 
+  group_by(gene_symbol) %>% 
+  summarise(diffmethy=mean(diff), meancoef=mean(coef))
+
+newplt2$color=ifelse(newplt2$meancoef>0, 'aged', 'young')
+
+t=cor.test(newplt2$diffmethy, newplt2$meancoef)
+cor[i,'r']=t$estimate
+cor[i,'pval']=t$p.value
+
+
+}
+
+
+write.csv(cor, file='C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/methylation/Project_13012_B/histone/newplt/correlation_r_pval.csv')
+
+
+```
+correlation heatmap
+```{r}
+r1=read.csv('C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/methylation/Project_13012_B/histone/newplt/correlation_r_pval.csv', row.names=1)
+r1
+#keep same order
+order=c('H3k4me1', 'H3K27ac', 'H3k4me3H3K27ac', 'H3k4me3', 'H3k4me1H3K27ac', 'H3k4me1H3k4me3', 'H3k4me1H3k4me3H3K27ac', 'nohistone')
+r1=r1[order,]
+
+#combine make plot data frame
+
+plt=data.frame(AT2=r1$r)  
+rownames(plt)=order
+plt
+
+mat2=data.frame(AT2=r1$pval)          
+rownames(mat2)=order
+mat2
+
+
+
+heatmap
+```{r}
+library(pheatmap)
+pheatmap(plt, cluster_rows = F, cluster_cols = F)
+
+library(ComplexHeatmap)
+library(circlize)
+library(RColorBrewer)
+library(grid)
+
+#save plot
+pdf('C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/methylation/Project_13012_B/histone/newplt/heatmap_correlation_AT2_LUAD_color_green.pdf')
+Heatmap(plt, cluster_columns=FALSE, cluster_rows = F, show_row_names = T, show_column_names = T,  
+         column_title = 'pearson correlation between DMC and DEG', #add column title
+         column_names_gp = grid::gpar(fontsize = 12, fontfamily = "sans", fontface = "bold"), #change font size and type
+  row_names_gp = grid::gpar(fontsize = 12, fontfamily = "sans", fontface = "bold"),
+        width = ncol(plt)*unit(5, "mm"),  #change box size
+    height = nrow(plt)*unit(5, "mm"),
+    border=T, 
+        col =colorRampPalette(brewer.pal(9,'Greens'))(10)[10:1], #change order of the color
+    cell_fun = function(j, i, x, y, w, h, fill) { #add the pvalue annotation
+    if(mat2[i, j] < 0.001) {
+        grid.text("***", x, y)
+    } else if(mat2[i, j] < 0.01) {
+        grid.text("**", x, y)
+    } else if(mat2[i, j] < 0.05) {
+        grid.text("*", x, y)
+    } })
+dev.off()
+```
+
+
+scatter plot per histone category
+```{r}
+#facet plot
+library(dplyr)
+plt=bind_rows(pls1)
+
+plt$histone=ifelse(plt$histone=='H3K27ac', 'H3K27ac\nactive_enhancer',plt$histone)
+plt$histone=ifelse(plt$histone=='H3k4me1', 'H3k4me1\npoised_enhancer',plt$histone)
+plt$histone=ifelse(plt$histone=='H3k4me3H3K27ac', 'H3k4me3H3K27ac\npromoter',plt$histone)
+
+
+plt$histone=factor(plt$histone, levels=c( 'H3k4me1\npoised_enhancer', 'H3K27ac\nactive_enhancer', 'H3k4me3H3K27ac\npromoter','H3k4me3', 'H3k4me1H3K27ac', 'H3k4me1H3k4me3', 'H3k4me1H3k4me3H3K27ac', 'nohistone'))
+
+p=ggscatter(plt, y='diffmethy', x='meancoef', facet.by = 'histone', scales='free_x',
+          label = 'label', 
+          color='color',palette = c('black', 'red'),
+          repel = F,add = "reg.line",   # Add regressin line
+   add.params = list(color = "blue", fill = "lightgray"), # Customize reg. line
+   conf.int = TRUE)+
+  ylab('differential methylation value(aged - young)')+xlab('DEG log2FC(aged/young)')+
+  stat_cor(method = "pearson", label.x = -1.5, label.y = 0.25)+
+  ggtitle('DMC ~ significant DEG')+
+  font("legend.title",size = 20, face = "bold")+ #increase size
+ font("legend.text", size = 20,face = "bold")+
+ font("caption", size = 20, face = "bold")+
+ font("xlab", size = 20, face = "bold")+
+ font("ylab", size = 20, face = "bold")+
+  font("title", size = 20, face = "bold")+
+ font("xy.text", size = 20, face = "bold")+
+  theme(legend.position = 'none')+
+  geom_hline(yintercept=0, linetype="dashed", color = "red")+
+  geom_vline(xintercept=0, linetype="dashed", color = "red")
+p
+
+pdf('C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/methylation/Project_13012_B/histone/newplt/allhistone_sigDEG_DMC_mean_lcn2_nupr1_scgb1a1_B_rotate.pdf', width = 10, height = 10)
+p
+dev.off()
+
+
+```
