@@ -1,4 +1,4 @@
-differential gene expression analysis 
+differential gene expression analysis (Extended.Fig8e)
 
 -A vs Y
 
