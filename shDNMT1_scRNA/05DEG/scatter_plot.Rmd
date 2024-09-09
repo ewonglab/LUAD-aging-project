@@ -1,0 +1,85 @@
+setwd('C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/shDNMT1_scRNA/05pseudobulk/edgeR/cluster1')
+res=read.csv('scRNA_DEG_shDNMT1_Y_minus_Veh_Y_edger_gfp_positive.csv', row.names = 1)
+head(res)
+de=read.csv('scRNA_DEG_Veh_A_minus_Veh_Y_edger_gfp_positive.csv', row.names = 1)
+head(de)
+
+library(dplyr)
+plt=inner_join(res, de, by=c('gene'='gene'), suffix=c('.shDNMT1', '.Ctrl'))
+head(plt)
+
+write.csv(plt, file='scRNA_DEG_youngshDNMT1_minus_youngCon_compare_with_untreated_edger_cluster1_gfp_positive.csv')
+
+library(dplyr)
+plt=inner_join(res, de, by=c('gene'='gene'))
+head(plt)
+
+####supp sig 11h
+library(ggpubr)
+library(ggplot2)
+library(ggrepel)
+library(ggdensity)
+library(devtools)
+library(cowplot)
+
+p=ggplot(plt, aes(x=logFC.x, y=logFC.y )) +  geom_hdr()+ #method = "freqpoly"vfill='blue'
+   geom_hline(yintercept=0, linetype="dashed", color = "red")+
+  geom_vline(xintercept=0, linetype="dashed", color = "red")+
+  xlab('log2FC(young shDNMT1/young Veh)')+
+  ylab('log2FC(aged Veh/young Veh)')+ theme_bw() +
+  theme(panel.grid.minor = element_blank(), 
+        axis.line = element_line(colour = "black"), 
+        panel.border=element_blank(),
+        axis.text.x = element_text(size=20, face="bold"),
+        axis.text.y = element_text(size=20,face="bold"),  
+        axis.title.x = element_text(size=20, face="bold"),
+        axis.title.y = element_text(size=20, face="bold"),
+        plot.title = element_text(size=20,face="bold")) +
+   stat_cor(method = "pearson", label.x = -2)+
+    geom_smooth(method="lm",se=T) +
+   theme_cowplot(20)
+  #scale_fill_manual(values=c("#E69F00"))
+  #stat_smooth(geom="text",method="lm",hjust=0,parse=TRUE)
+p
+
+pdf('scRNA_DEG_youngshDNMT1_minus_youngCon_compare_with_untreated_contour_edger_line.pdf')
+p
+dev.off()
+
+####supp fig 11i
+library(openxlsx)
+de=read.xlsx('MAST_filter_fix_AT2_aged_sedyoung_sed.xlsx', rowNames = T)
+
+head(de)
+
+#significant DEG related to aging: |log2FC|>0.25, fdr<0.05
+genes=de$primerid[which(abs(de$coef)>0.25 & de$fdr <0.05)]
+
+subplt=plt[which(plt$gene %in% genes),]
+keep=c('Nupr1', 'Lcn2')
+subplt$color=ifelse(subplt$gene %in% keep, "red", "black")
+subplt$label=ifelse(subplt$gene %in% keep, subplt$gene, '')
+
+p3=ggscatter(subplt, x='logFC.x', y='logFC.y', label = 'label',
+             color = 'color', palette = c('black', 'red'),
+             add = "reg.line",  # Add regressin line
+   add.params = list(color = "blue", fill = "lightgray"), # Customize reg. line
+   conf.int = TRUE )+
+   xlab('log2FC(young shDNMT1/young Veh)')+
+  ylab('log2FC(aged Veh/young Veh)')+
+  ggtitle('AT2 significant DEG \n(|log2FC|>0.25, fdr<0.05)')+
+    stat_cor(method = "pearson", label.x = -2)+
+  geom_hline(yintercept=0, linetype="dashed", color = "red")+
+  geom_vline(xintercept=0, linetype="dashed", color = "red")+
+font("legend.title",size = 20, face = "bold")+ #increase size
+ font("legend.text", size = 20,face = "bold")+
+ font("caption", size = 20, face = "bold")+
+ font("xlab", size = 20, face = "bold")+
+ font("ylab", size = 20, face = "bold")+
+  font("title", size = 20, face = "bold")+
+ font("xy.text", size = 20, face = "bold")+
+  theme(legend.position = 'none')
+
+pdf('scRNA_DEG_youngshDNMT1_minus_youngCon_compare_with_untreated_edger_AT2_DEG_color_line.pdf')
+p3
+dev.off()
