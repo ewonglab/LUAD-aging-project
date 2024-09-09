@@ -1,0 +1,105 @@
+---
+title: "DMC and CpG island methylation level"
+author: "Qing Wang"
+date: "07/12/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## prepare data
+
+other script at C:\Users\q.wang\OneDrive - Victor Chang\Documents\tuomas\methylation\Project_13012_B\DEG\annotate
+```{r}
+library(reshape2)
+
+dmc=read.csv('C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/methylation/Project_13012_B/Results/DSS/A_vs_Y/DSSDMC_mm10_A_vs_Y_geneAnn.csv')
+
+
+plt=melt(dmc[,c('mu1', 'mu2', 'annot.type', 'annot.symbol')])
+
+
+plt$variable=ifelse(plt$variable =='mu1', 'aged', 'young')
+
+table(plt$variable)
+
+colnames(plt)[3]='age'
+
+head(plt)
+
+library(dplyr)
+plt=plt %>% filter(annot.type %in% c('mm10_cpg_islands', 'mm10_cpg_shelves', 'mm10_cpg_shores', 'mm10_cpg_inter'))
+
+
+# table(plt$annot.type)
+# label=plt %>% filter(annot.type %in% c('mm10_cpg_islands', 'mm10_cpg_shelves', 'mm10_cpg_shores', 'mm10_cpg_inter'))%>% group_by(annot.symbol, annot.type) %>% summarise(count=n()) %>% as.data.frame()
+# 
+# label
+# label=label %>% group_by(annot.type) %>% summarise(count=n()) %>% as.data.frame()
+# 
+# rownames(label)=label$annot.type
+
+#label
+
+#plt=left_join(plt, label, by='annot.type')
+#head(plt)
+
+#plt$label=paste0(plt$annot.type, '\n',plt$count)
+
+# order=sort(unique(plt$annot.type))#c('promoter', "promoter-chipseq", "exon" , "intron",  "intron-chipenhancer", "intergenic",
+# #        "intergenic-chipenhancer", "5UTR" , "3UTR" ,'CpGisland')
+# 
+# label=label[order,]
+# label$text=paste0(label$annot.type,'\nn=', label$count)
+# label
+
+head(plt)
+``` 
+
+```{r}
+library(ggpubr)
+
+ggboxplot(plt, fill='age', y='value', x='annot.type', palette = c('red', 'blue'), legend = "right" )+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))#scale_x_discrete(labels = label$text) #order=order
+
+p1=ggboxplot(plt, fill='age', y='value', x='annot.type', palette = c('#E41A1C', '#377EB8'), legend = "right" )+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+#,order=order
+  font("legend.title",size = 20, face = "bold")+ #increase size
+ font("legend.text", size = 20,face = "bold")+
+ font("caption", size = 20, face = "bold")+
+ font("xlab", size = 20, face = "bold")+
+ font("ylab", size = 20, face = "bold")+
+  font("title", size = 20, face = "bold")+
+ font("xy.text", size = 20, face = "bold")+#scale_x_discrete(labels = label$text)+
+  ggtitle('DNA methylation value for DMC in each category')
+  
+
+p1
+
+pdf('C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/methylation/Project_13012_B/CpGisland/DMC_CpGisland_methy_value.pdf')
+p1
+dev.off()
+
+```
+add pvalue
+```{r}
+library(ggpubr)
+
+my_comparisons <- list( c("aged", "young"))
+p1=ggboxplot(plt, facet.by = 'annot.type', y='value', x='age', palette = c('#E41A1C', '#377EB8'), legend = "right" )+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+#,order=order
+  font("legend.title",size = 20, face = "bold")+ #increase size
+ font("legend.text", size = 20,face = "bold")+
+ font("caption", size = 20, face = "bold")+
+ font("xlab", size = 20, face = "bold")+
+ font("ylab", size = 20, face = "bold")+
+  font("title", size = 20, face = "bold")+
+ font("xy.text", size = 20, face = "bold")+#scale_x_discrete(labels = label$text)+
+  ggtitle('DNA methylation value for DMC in each category')+
+  stat_compare_means(comparisons = my_comparisons)
+
+p1
+
+pdf('C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/methylation/Project_13012_B/CpGisland/DMC_CpGisland_methy_value_pvalue.pdf')
+p1
+dev.off()
+```
