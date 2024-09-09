@@ -1,0 +1,223 @@
+---
+title: "bulk RNA in vivo DNMTi edgeR "
+author: "Qing Wang"
+date: "10/11/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## description
+
+read in the count
+
+```{r}
+setwd('C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/rna_bulk_Project_13772_G_DNMT1i/')
+count=read.table('count_all_sample.txt')
+meta=read.csv('meta.csv')
+
+head(count)
+head(meta)     
+
+rownames(meta)=colnames(count)
+
+meta$condition_age=paste(meta$condition, meta$age, sep='_')
+meta=meta[,-1]
+meta
+write.csv(meta, file='sample.csv')
+```
+
+edgeR pipeline
+```{r}
+library(edgeR)
+y <- DGEList(counts=count,samples=meta)
+keep <- filterByExpr(y) #keep all genes
+y <- y[keep,,keep.lib.sizes=FALSE]
+summary(keep) #15292
+y <- calcNormFactors(y)
+
+
+nc <- cpm(y, normalized.lib.sizes=TRUE, log=FALSE, prior.count=0.25)
+setwd('C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/rna_bulk_Project_13772_G_DNMT1i/edgeR')
+#write.table(nc, file='edger_normcount_allsample.txt')
+
+design <- model.matrix(~0+condition_age+sex+batch, y$samples)
+design
+y <- estimateDisp(y,design)
+
+summary(y$trended.dispersion)
+
+fit <- glmQLFit(y, design, robust=TRUE)#glmQLFit(y, design, robust=TRUE)
+summary(fit$var.prior)
+
+``` 
+
+```{r}
+
+cont<- makeContrasts(
+  DNMTiY_VehY = condition_ageDNMTi_Y-condition_ageVeh_Y,
+  DNMTiA_VehA = condition_ageDNMTi_A-condition_ageVeh_A,
+  DNMTiA_VehY = condition_ageDNMTi_A-condition_ageVeh_Y,
+  VehA_DNMTiY = condition_ageVeh_A - condition_ageDNMTi_A, 
+  VehA_VehY = condition_ageVeh_A - condition_ageVeh_Y, 
+  levels = colnames(design))
+cont
+
+aysed <- glmQLFTest(fit, contrast =cont[,'DNMTiY_VehY'])
+summary(decideTests(aysed))
+aysed <- (topTags(aysed, adjust.method = "fdr", n = nrow(count)))
+aysed <- aysed$table 
+head(aysed)
+aysed$gene=rownames(aysed)
+write.csv(aysed, 'rna_bulk_IGO-13772_G_DNMT1i_DEG_DNMTi_Y_minus_Veh_Y_edger.csv')
+
+library(EnhancedVolcano)
+EnhancedVolcano(aysed,
+                lab = aysed$gene,  
+                x = 'logFC',
+                pCutoff = 0.05,
+                FCcutoff = 0.2,
+                #title = "DEG untreated",   
+                y = 'PValue',
+                xlab = 'log2FC (DNMTi_Y_minus_Veh_Y)',
+                titleLabSize=10,
+                subtitleLabSize = 8,
+                captionLabSize = 8,
+                legendLabSize = 10
+)
+
+pdf('rna_bulk_IGO-13772_G_DNMT1i_DEG_DNMTi_Y_minus_Veh_Y_edger_volcano.pdf')
+EnhancedVolcano(aysed,
+                lab = aysed$gene,  
+                x = 'logFC',
+                pCutoff = 0.05,
+                FCcutoff = 0.2,
+                #title = "DEG untreated",   
+                y = 'PValue',
+                xlab = 'log2FC (DNMTi_Y_minus_Veh_Y)',
+                titleLabSize=10,
+                subtitleLabSize = 8,
+                captionLabSize = 8,
+                legendLabSize = 10
+)
+dev.off()
+
+
+aysed <- glmQLFTest(fit, contrast =cont[,'VehA_VehY'])
+summary(decideTests(aysed))
+aysed <- (topTags(aysed, adjust.method = "fdr", n = nrow(count)))
+aysed <- aysed$table 
+head(aysed)
+aysed$gene=rownames(aysed)
+write.csv(aysed, 'rna_bulk_IGO-13772_G_DNMT1i_DEG_Veh_A_minus_Veh_Y_edger.csv')
+
+library(EnhancedVolcano)
+EnhancedVolcano(aysed,
+                lab = aysed$gene,  
+                x = 'logFC',
+                pCutoff = 0.05,
+                FCcutoff = 0.2,
+                #title = "DEG untreated",   
+                y = 'PValue',
+                xlab = 'log2FC (Veh_A_minus_Veh_Y)',
+                titleLabSize=10,
+                subtitleLabSize = 8,
+                captionLabSize = 8,
+                legendLabSize = 10
+)
+
+pdf('rna_bulk_IGO-13772_G_DNMT1i_DEG_Veh_A_minus_Veh_Y_edger_volcano.pdf')
+EnhancedVolcano(aysed,
+                lab = aysed$gene,  
+                x = 'logFC',
+                pCutoff = 0.05,
+                FCcutoff = 0.2,
+                #title = "DEG untreated",   
+                y = 'PValue',
+                xlab = 'log2FC (Veh_A_minus_Veh_Y)',
+                titleLabSize=10,
+                subtitleLabSize = 8,
+                captionLabSize = 8,
+                legendLabSize = 10
+)
+dev.off()
+
+#DNMTiA - VehA
+aysed <- glmQLFTest(fit, contrast =cont[,'DNMTiA_VehA'])
+summary(decideTests(aysed))
+aysed <- (topTags(aysed, adjust.method = "fdr", n = nrow(count)))
+aysed <- aysed$table 
+head(aysed)
+aysed$gene=rownames(aysed)
+write.csv(aysed, 'rna_bulk_IGO-13772_G_DNMT1i_DEG_DNMTiA_minus_vehA_edger.csv')
+
+pdf('rna_bulk_IGO-13772_G_DNMT1i_DEG_DNMTiA_minus_vehA_edger_volcano.pdf')
+EnhancedVolcano(aysed,
+                lab = aysed$gene,  
+                x = 'logFC',
+                pCutoff = 0.05,
+                FCcutoff = 0.2,
+                #title = "DEG untreated",   
+                y = 'PValue',
+                xlab = 'log2FC (DNMTiA_minus_vehA)',
+                titleLabSize=10,
+                subtitleLabSize = 8,
+                captionLabSize = 8,
+                legendLabSize = 10
+)
+dev.off()
+
+#VehA_DNMTiY
+aysed <- glmQLFTest(fit, contrast =cont[,'VehA_DNMTiY'])
+summary(decideTests(aysed))
+aysed <- (topTags(aysed, adjust.method = "fdr", n = nrow(count)))
+aysed <- aysed$table 
+head(aysed)
+aysed$gene=rownames(aysed)
+write.csv(aysed, 'rna_bulk_IGO-13772_G_DNMT1i_DEG_VehA_minus_DNMTiY_edger.csv')
+
+pdf('rna_bulk_IGO-13772_G_DNMT1i_DEG_VehA_minus_DNMTiY_edger_volcano.pdf')
+EnhancedVolcano(aysed,
+                lab = aysed$gene,  
+                x = 'logFC',
+                pCutoff = 0.05,
+                FCcutoff = 0.2,
+                #title = "DEG untreated",   
+                y = 'PValue',
+                xlab = 'log2FC (VehA_minus_DNMTiY)',
+                titleLabSize=10,
+                subtitleLabSize = 8,
+                captionLabSize = 8,
+                legendLabSize = 10
+)
+dev.off()
+
+#DNMTiA_VehY
+aysed <- glmQLFTest(fit, contrast =cont[,'DNMTiA_VehY'])
+summary(decideTests(aysed))
+aysed <- (topTags(aysed, adjust.method = "fdr", n = nrow(count)))
+aysed <- aysed$table 
+head(aysed)
+aysed$gene=rownames(aysed)
+setwd('C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/rna_bulk_Project_13772_G_DNMT1i/edgeR')
+write.csv(aysed, 'rna_bulk_IGO-13772_G_DNMT1i_DEG_DNMTiA_minus_VehY_edger.csv')
+
+pdf('rna_bulk_IGO-13772_G_DNMT1i_DEG_DNMTiA_minus_VehY_edger_volcano.pdf')
+EnhancedVolcano(aysed,
+                lab = aysed$gene,  
+                x = 'logFC',
+                pCutoff = 0.05,
+                FCcutoff = 0.2,
+                #title = "DEG untreated",   
+                y = 'PValue',
+                xlab = 'log2FC (DNMTiA_minus_VehY)',
+                titleLabSize=10,
+                subtitleLabSize = 8,
+                captionLabSize = 8,
+                legendLabSize = 10
+)
+dev.off()
+```
+
