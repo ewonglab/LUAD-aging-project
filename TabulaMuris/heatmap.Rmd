@@ -1,0 +1,32 @@
+#converted from tabula muris deg results
+load('C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/TabulaMuris/TabulisMurisMatrixesIronRelatedGeneList.RData')
+rownames(mat2)=rownames(plt)
+
+plt=plt[c(10,1:9, 11,12),]
+plt
+
+plt=plt[,order(plt[1,])]
+plt
+
+
+mat2=mat2[rownames(plt),colnames(plt)]
+mat2
+
+pdf('C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/TabulaMuris/tabula_plsOther_seurat_iron_heatmap_nocluster_order_by_AT2.pdf', width = 10)
+Heatmap(plt, cluster_columns=F, cluster_rows = F, show_row_names = T, show_column_names = T,  
+        #top_annotation_height=unit(1,'cm'), 
+        #top_annotation=colAnn,
+        width = ncol(plt)*unit(5, "mm"), 
+    height = nrow(plt)*unit(5, "mm"),
+    #column_order=keep[order(de[keep,]$coef, decreasing=T)], 
+    border=T, #name = 'Odds Ratio', #column_title =main, #right_annotation = ha,
+        col =colorRamp2(myBreaks, col.heatmap),
+     cell_fun = function(j, i, x, y, w, h, fill) { #add the pvalue annotation
+    if(mat2[i, j] < 0.001) {
+        grid.text("*", x, y)
+    } else if(mat2[i, j] < 0.01) {
+        grid.text("*", x, y)
+    } else if(mat2[i, j] < 0.05) {
+        grid.text("*", x, y)
+    } })
+dev.off()
