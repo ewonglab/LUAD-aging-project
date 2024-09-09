@@ -1,0 +1,174 @@
+---
+title: "DMC overlap with histone marks"
+author: "Qing Wang"
+date: "26/08/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## read in files
+
+add histone mark to the annotation 
+
+read in histone mark file
+```{r}
+library(data.table)
+library(GenomicRanges)
+setwd('C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/AT2chip')
+
+#H3K4me1
+fn=list.files(pattern = '*AT2_H3K4me1.macs2_peaks.broadPeak.gz')
+fn
+
+H3K4me1=lapply(fn, fread)
+lapply(H3K4me1, head)
+lapply(H3K4me1, dim)
+
+H3K4me1_all_gr <- lapply(H3K4me1, function(x) x=with(x, GRanges(V1, IRanges(V2,V3))))
+
+H3K4me1_gr<-Reduce(subsetByOverlaps, H3K4me1_all_gr) 
+H3K4me1_gr$histone='H3k4me1'
+H3K4me1_gr
+
+#H3K4me3
+fn=list.files(pattern = '*AT2_H3K4me3.macs2_peaks.narrowPeak.gz')
+fn
+
+H3K4me3=lapply(fn, fread)
+lapply(H3K4me3, head)
+lapply(H3K4me3, dim)
+
+H3K4me3_all_gr <- lapply(H3K4me3, function(x) x=with(x, GRanges(V1, IRanges(V2,V3))))
+
+H3K4me3_gr<-Reduce(subsetByOverlaps, H3K4me3_all_gr) 
+H3K4me3_gr$histone='H3k4me3'
+H3K4me3_gr
+
+#H3K27ac
+fn=list.files(pattern = '*AT2_H3K27ac.macs2_peaks.narrowPeak.gz')
+fn
+
+H3K27ac=lapply(fn, fread)
+H3K27ac_all_gr=lapply(H3K27ac, function(x) x=with(x, GRanges(V1, IRanges(V2,V3))))
+H3K27ac_gr<-Reduce(subsetByOverlaps, H3K27ac_all_gr) 
+H3K27ac_gr$histone='H3K27ac'
+H3K27ac_gr
+
+all=c(H3K4me1_gr, H3K4me3_gr, H3K27ac_gr)
+all
+```
+
+read DMC files
+```{r}
+dmc=read.csv('C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/methylation/Project_13012_B/Results/DSS/A_vs_Y/DSSDMC_mm10_A_vs_Y_geneAnn.csv') #
+head(dmc)
+
+summary(dmc$diff)  
+summary(abs(dmc$diff)) #filter with cutoff 0.05
+summary(dmc$fdr) #not filtered on this 
+summary(dmc$pval)
+
+#make grange object
+dmcgr=unique(makeGRangesFromDataFrame(dmc))
+dmcgr
+```
+
+find DMC overlap histone marks and plot distribution of DMC in each histone mark category 
+```{r}
+
+dmc$coord=paste(dmc$seqnames, dmc$start, dmc$end, sep = '-')
+
+ov=findOverlaps(dmcgr, H3K4me1_gr)
+ov
+
+dmcgr$H3k4me1=''
+dmcgr$H3k4me1[queryHits(ov)]='H3k4me1'
+dmcgr
+```
+
+```{r}
+#dmc$coord=paste(dmc$seqnames, dmc$start, dmc$end, sep = '-')
+
+ov=findOverlaps(dmcgr, H3K4me3_gr)
+ov
+dmcgr$H3k4me3=''
+dmcgr$H3k4me3[queryHits(ov)]='H3k4me3'
+
+dmcgr
+```
+
+```{r}
+
+ov=findOverlaps(dmcgr, H3K27ac_gr)
+
+dmcgr$H3K27ac=''
+dmcgr$H3K27ac[queryHits(ov)]='H3K27ac'
+
+dmcgr
+```
+
+combine all
+```{r}
+dmcgr$histone=paste(dmcgr$H3k4me1, dmcgr$H3k4me3, dmcgr$H3K27ac, sep='')
+dmcgr
+
+dmcgr$histone[dmcgr$histone == ""] <- 'nohistone'  
+
+table(dmcgr$histone)
+
+#save
+
+saveRDS(dmcgr, file='C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/methylation/Project_13012_B/histone/dmcgr.rds')
+```
+
+how many are hypermethy and how many are hypomethy
+```{r}
+dmc=read.csv('C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/methylation/Project_13012_B/Results/DSS/A_vs_Y/DSSDMC_mm10_A_vs_Y_geneAnn.csv') #
+head(dmc)
+
+dmc$coord=paste(dmc$seqnames, dmc$start, dmc$end, sep='-')
+dmc=dmc[,c('diff','pval', 'coord')]
+
+
+dmcgr=readRDS('C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/methylation/Project_13012_B/histone/dmcgr.rds')
+plt=as.data.frame(dmcgr)
+head(plt)
+plt$coord=paste(plt$seqnames, plt$start, plt$end, sep='-')
+
+plt=inner_join(plt, dmc, by='coord')
+head(plt)
+
+plt=unique(plt)
+
+plt$direction=ifelse(plt$diff>0, 'aged', 'young')
+
+df=plt %>% group_by(histone,direction) %>% summarise(count=n())
+#rewrite
+df$histone=ifelse(df$histone=='H3K27ac', 'H3K27ac\nactive_enhancer',df$histone)
+df$histone=ifelse(df$histone=='H3k4me1', 'H3k4me1\npoised_enhancer',df$histone)
+df$histone=ifelse(df$histone=='H3k4me3H3K27ac', 'H3k4me3H3K27ac\npromoter',df$histone)
+
+
+df$histone=factor(df$histone, levels=c( 'H3k4me1\npoised_enhancer', 'H3K27ac\nactive_enhancer', 'H3k4me3H3K27ac\npromoter','H3k4me3', 'H3k4me1H3K27ac', 'H3k4me1H3k4me3', 'H3k4me1H3k4me3H3K27ac', 'nohistone'))
+
+saveRDS(plt, file='C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/methylation/Project_13012_B/histone/dmc_histone_diff_plt.rds')
+saveRDS(df, file='C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/methylation/Project_13012_B/histone/dmc_histone_diff_df.rds')
+
+```
+
+```{r}
+pdf('C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/methylation/Project_13012_B/histone/DMC_histone_count_barplot_hyperhypo.pdf')
+df %>% ggbarplot( x='histone', y='count', fill='direction', palette = c('red', 'blue'),position = position_dodge(0.9),label = TRUE)+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  ggtitle('Number of DMC at AT2 histone mark')+
+  font("legend.title",size = 15, face = "bold")+ #increase size
+ font("legend.text", size = 15,face = "bold")+
+ font("caption", size = 15, face = "bold")+
+ font("xlab", size = 15, face = "bold")+
+ font("ylab", size = 15, face = "bold")+
+  font("title", size = 15, face = "bold")+
+ font("xy.text", size = 15, face = "bold")
+dev.off()
+```
