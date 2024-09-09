@@ -1,0 +1,73 @@
+iron = c('Nupr1', 'Lcn2') 
+
+de1=read.csv('C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/shNupr1_scRNA/05pseudobulk/edgeR/scRNA_DEG_Veh_A_minus_Veh_Y_edger_gfp_positive.csv', row.names = 1)
+
+rownames(de1) = de1$gene
+head(de1)
+
+
+keep = intersect(iron,rownames(de1))
+
+keep
+
+de2 = read.csv('C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/shNupr1_scRNA/05pseudobulk/edgeR/scRNA_DEG_shNupr1_Y_minus_Veh_Y_edger_gfp_positive.csv', row.names = 1)
+
+de3 = read.csv('C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/shNupr1_scRNA/05pseudobulk/edgeR/scRNA_DEG_shNupr1_A_minus_Veh_A_edger_gfp_positive.csv', row.names = 1)
+
+plt=data.frame(AvsY= de1[keep, 'logFC'],
+               shNupr1_YvsVeh_Y = de2[keep, 'logFC'], 
+                shNupr1_AvsVeh_A = de3[keep, 'logFC']
+               )
+rownames(plt) = keep
+plt
+
+mat2=data.frame(AvsY= de1[keep, 'PValue'],
+             shNupr1_YvsVeh_Y = de2[keep, 'PValue'], 
+                shNupr1_AvsVeh_A = de3[keep, 'PValue']
+               )
+rownames(mat2) = keep
+
+#####heatmap plot
+library(ComplexHeatmap)
+library(circlize)
+library(RColorBrewer)
+
+#red to blue 
+paletteLength=50
+col1 = "darkblue"
+    col2 = 'white'
+    col3 = 'red'
+    
+    
+myBreaks <- c(seq(min(plt), 0, length.out=ceiling(paletteLength/2) + 1), 
+              seq(max(plt)/paletteLength, max(plt), length.out=floor(paletteLength/2)))
+myBreaks
+
+col.heatmap <- colorRampPalette(c(col1,col2,col3 ))( length(myBreaks))
+col.heatmap
+
+subplt = t(plt)
+submat2 = t(mat2)
+
+p=Heatmap(subplt, cluster_columns=FALSE, cluster_rows = F, show_row_names = T, show_column_names = T,  
+         column_title = 'Gene Expression Change in AT2', #add column title
+         column_names_gp = grid::gpar(fontsize = 12,  fontface = "bold"), #change font size and type
+  row_names_gp = grid::gpar(fontsize = 12, fontface = "bold"), #fontfamily = "san", 
+        width = nrow(plt)*unit(5, "mm"),  #change box size
+    height = ncol(plt)*unit(5, "mm"),
+    #column_order=keep[order(de[keep,]$coef, decreasing=T)], 
+    border=T, 
+        col =colorRamp2(myBreaks, col.heatmap), #change order of the color
+    cell_fun = function(j, i, x, y, w, h, fill) { #add the pvalue annotation
+    if(submat2[i, j] < 0.001) {
+        grid.text("***", x, y)
+    } else if(submat2[i, j] < 0.01) {
+        grid.text("**", x, y)
+    } else if(submat2[i, j] < 0.1) {
+        grid.text("*", x, y)
+    } })#colorRamp2(c(min(plt), 0, max(plt), c("blue", "white", "red")) ))
+p
+
+pdf('C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/shNupr1_scRNA/histone_demethylase_iron_plot/iron_related_gene_expression_change_shNupr1_scRNA_heatmap_newlist.pdf', width = 12)
+p
+dev.off()
