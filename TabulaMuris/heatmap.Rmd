@@ -5,6 +5,7 @@ rownames(mat2)=rownames(plt)
 plt=plt[c(10,1:9, 11,12),]
 plt
 
+#order by AT2 
 plt=plt[,order(plt[1,])]
 plt
 
