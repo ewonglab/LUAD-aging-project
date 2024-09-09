@@ -1,0 +1,191 @@
+---
+title: "pseudobulk RNA shNupr1 edgeR "
+author: "Qing Wang"
+date: "10/11/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## description
+
+
+DEG comparisons: 
+aged vs young with shRen 
+
+young shNupr1_1 or 2 vs young shRen713 (whether knocking out Nupr1 change the AT2 gene expression in young)
+
+aged shNupr1_1 or 2 vs aged shRen713
+
+
+
+read in the count
+
+```{r}
+setwd('C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/shNupr1_scRNA/05pseudobulk/')
+count=read.csv('pseudo_count_raw_subsetAT_idboth_gfp_positive.csv', row.names = 1)
+meta=read.csv('pseudo_meta_subsetAT_idboth_gfp_positive.csv', row.names = 1)
+
+head(count)
+head(meta)     
+
+rownames(meta)=colnames(count)
+colnames(meta)[18]='batch'
+
+
+meta$batch=ifelse(meta$batch == 'IGO-028758', 'IGO028758',
+                  ifelse(meta$batch =='IGO-028759', 'IGO028759', 'IGO028760'))
+meta$batch=factor(meta$batch)
+str(meta)
+
+```
+
+edgeR pipeline
+```{r}
+library(edgeR)
+y <- DGEList(counts=count,samples=meta)
+keep <- filterByExpr(y) 
+
+
+y <- y[keep,,keep.lib.sizes=FALSE]
+summary(keep) #15292
+y <- calcNormFactors(y)
+
+
+nc <- cpm(y, normalized.lib.sizes=TRUE, log=FALSE, prior.count=0.25)
+setwd('C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/shNupr1_scRNA/05pseudobulk/edgeR')
+write.table(nc, file='edger_normcount_subsetATsample_gfp_positive.txt')
+
+design <- model.matrix(~0+both+batch+Sex, y$samples)
+design
+y <- estimateDisp(y,design)
+
+summary(y$trended.dispersion)
+
+fit <- glmQLFit(y, design, robust=TRUE)#glmQLFit(y, design, robust=TRUE)
+summary(fit$var.prior)
+
+``` 
+
+```{r}
+
+cont<- makeContrasts(
+  shNupr1Y_VehY = bothY_shNupr1 - bothY_control,
+  shNupr1A_VehA = bothA_shNupr1 - bothA_control,
+  VehA_VehY = bothA_control - bothY_control,
+  levels = colnames(design))
+cont
+
+aysed <- glmQLFTest(fit, contrast =cont[,'shNupr1Y_VehY'])
+summary(decideTests(aysed))
+aysed <- (topTags(aysed, adjust.method = "fdr", n = nrow(count)))
+aysed <- aysed$table 
+head(aysed)
+aysed$gene=rownames(aysed)
+setwd('C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/shNupr1_scRNA/05pseudobulk/edgeR/')
+write.csv(aysed, 'scRNA_DEG_shNupr1_Y_minus_Veh_Y_edger_gfp_positive.csv')
+
+library(EnhancedVolcano)
+EnhancedVolcano(aysed,
+                lab = aysed$gene,  
+                x = 'logFC',
+                pCutoff = 0.05,
+                FCcutoff = 0.2,
+                #title = "DEG untreated",   
+                y = 'PValue',
+                xlab = 'log2FC (shNupr1_Y_minus_Veh_Y)',
+                titleLabSize=10,
+                subtitleLabSize = 8,
+                captionLabSize = 8,
+                legendLabSize = 10
+)
+
+pdf('scRNA_DEG_shNupr1_Y_minus_Veh_Y_edger_volcano_gfp_positive.pdf')
+EnhancedVolcano(aysed,
+                lab = aysed$gene,  
+                x = 'logFC',
+                pCutoff = 0.05,
+                FCcutoff = 0.2,
+                #title = "DEG untreated",   
+                y = 'PValue',
+                xlab = 'log2FC (shNupr1_Y_minus_Veh_Y)',
+                titleLabSize=10,
+                subtitleLabSize = 8,
+                captionLabSize = 8,
+                legendLabSize = 10
+)
+dev.off()
+
+
+# VehA_VehY
+aysed <- glmQLFTest(fit, contrast =cont[,'VehA_VehY'])
+summary(decideTests(aysed))
+aysed <- (topTags(aysed, adjust.method = "fdr", n = nrow(count)))
+aysed <- aysed$table 
+head(aysed)
+aysed$gene=rownames(aysed)
+write.csv(aysed, 'scRNA_DEG_Veh_A_minus_Veh_Y_edger_gfp_positive.csv')
+
+library(EnhancedVolcano)
+EnhancedVolcano(aysed,
+                lab = aysed$gene,  
+                x = 'logFC',
+                pCutoff = 0.05,
+                FCcutoff = 0.2,
+                #title = "DEG untreated",   
+                y = 'PValue',
+                xlab = 'log2FC (Veh_A_minus_Veh_Y)',
+                titleLabSize=10,
+                subtitleLabSize = 8,
+                captionLabSize = 8,
+                legendLabSize = 10
+)
+
+pdf('scRNA_DEG_Veh_A_minus_Veh_Y_edger_volcano_gfp_positive.pdf')
+EnhancedVolcano(aysed,
+                lab = aysed$gene,  
+                x = 'logFC',
+                pCutoff = 0.05,
+                FCcutoff = 0.2,
+                #title = "DEG untreated",   
+                y = 'PValue',
+                xlab = 'log2FC (Veh_A_minus_Veh_Y)',
+                titleLabSize=10,
+                subtitleLabSize = 8,
+                captionLabSize = 8,
+                legendLabSize = 10
+)
+dev.off()
+
+
+
+#shNupr1A_minus_VehA
+aysed <- glmQLFTest(fit, contrast =cont[,'shNupr1A_VehA'])
+summary(decideTests(aysed))
+aysed <- (topTags(aysed, adjust.method = "fdr", n = nrow(count)))
+aysed <- aysed$table 
+head(aysed)
+aysed$gene=rownames(aysed)
+write.csv(aysed, 'scRNA_DEG_shNupr1A_minus_VehA_edger_gfp_positive.csv')
+
+pdf('scRNA_DEG_shNupr1A_minus_VehA_edger_volcano_gfp_positive.pdf')
+EnhancedVolcano(aysed,
+                lab = aysed$gene,  
+                x = 'logFC',
+                pCutoff = 0.05,
+                FCcutoff = 0.2,
+                #title = "DEG untreated",   
+                y = 'PValue',
+                xlab = 'log2FC (shNupr1A_minus_VehA)',
+                titleLabSize=10,
+                subtitleLabSize = 8,
+                captionLabSize = 8,
+                legendLabSize = 10
+)
+dev.off()
+
+
+```
+
