@@ -24,7 +24,7 @@ head(plt)
 
 ```{r}
 
-keep=c('Lcn2', 'Nupr1', 'Scgb1a1')
+keep=c('Lcn2', 'Nupr1')
 newplt=plt %>% filter(gene_symbol %in% keep) %>% group_by(histone, gene_symbol) %>% summarise(diff=mean(diff))
 
 newplt
@@ -32,12 +32,12 @@ newplt
 
 save Nupr1 and Lcn2
 ```{r}
-library(dplyr)
-keep=c('Lcn2', 'Nupr1')
-newplt=plt %>% filter(gene_symbol %in% keep)
+#library(dplyr)
+#keep=c('Lcn2', 'Nupr1')
+#newplt=plt %>% filter(gene_symbol %in% keep)
 
-library(openxlsx)
-write.xlsx(newplt, file='C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/methylation/Project_13012_B/histone/lcn2_nupr1_histone.xlsx')
+#library(openxlsx)
+#write.xlsx(newplt, file='C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/methylation/Project_13012_B/histone/lcn2_nupr1_histone.xlsx')
 ```
 
 
@@ -66,27 +66,9 @@ library(ComplexHeatmap)
 library(circlize)
 library(RColorBrewer)
 library(grid)
-#ha = rowAnnotation(foo = anno_mark(at = c(5, 7,9,13, 17, 39, 74, 117 ), labels = rownames(d)[c(5, 7,9,13, 17, 39, 74, 117 )]))
-Heatmap(newplt2, cluster_columns=FALSE, cluster_rows = F, show_row_names = T, show_column_names = T,  
-         column_title = 'DMC differential methylation level', #add column title
-         column_names_gp = grid::gpar(fontsize = 12, fontfamily = "sans", fontface = "bold"), #change font size and type
-  row_names_gp = grid::gpar(fontsize = 12, fontfamily = "sans", fontface = "bold"),
-        width = ncol(newplt2)*unit(5, "mm"),  #change box size
-    height = nrow(newplt2)*unit(5, "mm"),
-    #column_order=keep[order(de[keep,]$coef, decreasing=T)], 
-    border=T, #name = 'Odds Ratio', #column_title =main, #right_annotation = ha, 
-        col =colorRamp2(c(min(newplt2, na.rm = T), -0.1), c("blue", "white")) #change order of the color
-    )#colorRamp2(c(min(plt), 0, max(plt), c("blue", "white", "red")) ))
-# cell_fun = function(j, i, x, y, w, h, fill) { #add the pvalue annotation
-#     if(pmat[i, j] < 0.001) {
-#         grid.text("***", x, y)
-#     } else if(pmat[i, j] < 0.01) {
-#         grid.text("**", x, y)
-#     } else if(pmat[i, j] < 0.05) {
-#         grid.text("*", x, y)
-#     } }
 
-pdf('C:/Users/q.wang/OneDrive - Victor Chang/Documents/tuomas/methylation/Project_13012_B/histone/lcn2_nupr1_scgb1a1_dmc_histone_heatmap.pdf')
+
+pdf('lcn2_nupr1_dmc_histone_heatmap.pdf')
 Heatmap(newplt2, cluster_columns=FALSE, cluster_rows = F, show_row_names = T, show_column_names = T,  
          column_title = 'DMC differential methylation level', #add column title
          column_names_gp = grid::gpar(fontsize = 12, fontfamily = "sans", fontface = "bold"), #change font size and type
