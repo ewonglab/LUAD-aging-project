@@ -8,7 +8,7 @@ head(de)
 colnames(de)[1]='gene' 
 
 library(dplyr)
-df=inner_join(s,de,by='gene',suffix=c('.luad', '.normal')) 
+df=inner_join(s,de,by='gene',suffix=c('.luad', '.at2')) 
 head(df)
 
 cor.test(df$coef.exercise, df$coef.luad)
